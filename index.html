@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Yalla Drift — Free 3D Drift Game | yalladrift.com</title>
+<meta name="description" content="Yalla Drift is a free 3D drift racing game that runs in your browser. Play with touch, keyboard or gamepad.">
+<meta property="og:title" content="Yalla Drift — Free 3D Drift Game">
+<meta property="og:description" content="Slide a desert circuit in a Supra MK4 or GT-R R34 replica. Play free in your browser.">
+<meta name="theme-color" content="#0a0e1a">
+<style>
+:root{--hud:#fff;--btn-bg:rgba(255,255,255,.15);--btn-border:rgba(255,255,255,.35);--accent:#ff6b00}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#0a0e1a;color:var(--hud);font-family:-apple-system,system-ui,"Segoe UI",sans-serif;touch-action:none;-webkit-user-select:none;user-select:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+#hud{position:fixed;top:calc(14px + env(safe-area-inset-top));left:14px;text-shadow:0 1px 4px rgba(0,0,0,.8);z-index:10;pointer-events:none}
+#speed{font-size:32px;font-weight:800;line-height:1}
+#unit{font-size:12px;opacity:.85;letter-spacing:.05em}
+#driftLabel{font-size:13px;font-weight:800;letter-spacing:.1em;color:#ffb703;opacity:0;transition:opacity .15s;margin-top:4px}
+#nitroBar{margin-top:10px;width:100px;height:8px;border-radius:4px;background:rgba(255,255,255,.2);overflow:hidden}
+#nitroFill{height:100%;width:100%;background:linear-gradient(90deg,#4895ef,#4cc9f0)}
+#score{position:fixed;top:calc(14px + env(safe-area-inset-top));left:0;right:0;text-align:center;z-index:9;pointer-events:none;text-shadow:0 1px 4px #000;font-weight:800;font-size:24px}
+#score small{display:block;font-size:11px;opacity:.75;font-weight:600;letter-spacing:.06em}
+#controls{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:0;right:0;display:flex;justify-content:space-between;align-items:flex-end;padding:0 18px;z-index:10;pointer-events:none}
+#controls>*{pointer-events:auto}
+.btn{width:64px;height:64px;border-radius:50%;background:var(--btn-bg);border:2px solid var(--btn-border);color:#fff;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;touch-action:none;backdrop-filter:blur(6px)}
+.btn:active{background:rgba(255,255,255,.4)}
+.btn.hb{background:rgba(255,140,0,.3);border-color:rgba(255,140,0,.6);font-size:16px}
+.btn.nitro{background:rgba(72,149,239,.3);border-color:rgba(76,201,240,.7);font-size:16px}
+#steer,.row{display:flex;gap:12px}
+#pedals{display:flex;flex-direction:column;gap:12px}
+#wheel{display:none;position:relative;width:140px;height:140px;border-radius:50%;background:rgba(255,255,255,.08);border:3px solid rgba(255,255,255,.25);touch-action:none}
+#knob{position:absolute;width:40px;height:40px;background:var(--accent);border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%);box-shadow:0 0 12px rgba(255,107,0,.6)}
+#gear{position:fixed;top:calc(14px + env(safe-area-inset-top));right:14px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:20px;display:flex;align-items:center;justify-content:center;z-index:20}
+.ov{position:fixed;inset:0;background:rgba(5,8,15,.93);z-index:30;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center}
+.ov.open{display:flex}
+.ov h1{font-size:44px;font-weight:900;font-style:italic;letter-spacing:.02em}
+.ov h2{font-size:22px;margin-bottom:22px}
+.ov p{opacity:.7;font-size:14px;margin-top:8px;line-height:1.5}
+.go{margin-top:20px;padding:14px 34px;border-radius:30px;background:var(--accent);color:#fff;font-weight:800;border:0;font-size:16px}
+.go.alt{background:rgba(255,255,255,.15)}
+.srow{width:100%;max-width:320px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.srow select{padding:8px 10px;border-radius:8px;background:#1b2030;color:#fff;border:1px solid rgba(255,255,255,.3);font-size:15px}
+.ov{overflow-y:auto}.ov>:first-child{margin-top:auto}.ov>:last-child{margin-bottom:auto}#set .go{margin-top:12px;padding:10px 26px}#padmsg{display:none;max-width:300px}
+body:not(.playing) :is(#hud,#score,#controls,#gear){visibility:hidden}
+#start{justify-content:flex-start;background:linear-gradient(180deg,rgba(5,8,15,.2),rgba(5,8,15,.5) 38%,rgba(5,8,15,.96) 72%);padding-top:calc(16px + env(safe-area-inset-top))}
+#start>nav{width:100%;max-width:900px;display:flex;justify-content:space-between;align-items:center;margin:0 0 6vh;font-size:14px}
+#start nav span{opacity:.65}
+#start h1{font-size:clamp(44px,13vw,96px);line-height:.95;text-shadow:0 4px 30px rgba(0,0,0,.5)}
+#start .lead{max-width:420px;font-size:16px;opacity:.9;margin-top:14px}
+.stage{height:26vh;min-height:110px}
+#start section{width:100%;max-width:640px;margin-top:34px}
+#start h3{font-size:16px;margin-bottom:12px}
+.cars{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.cars button{padding:12px 6px;border-radius:14px;background:rgba(255,255,255,.08);border:2px solid transparent;color:#fff;font-size:14px;font-weight:700}
+.cars button.sel{border-color:var(--accent);background:rgba(255,107,0,.15)}
+.cars i{display:block;height:6px;border-radius:3px;margin-bottom:8px}
+.cars small{display:block;font-weight:500;opacity:.65;font-size:11px;margin-top:3px}
+#start>footer{margin:48px 0 0;opacity:.5;font-size:12px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><div id="speed">0</div><div id="unit">KM/H</div><div id="driftLabel">DRIFT</div><div id="nitroBar"><div id="nitroFill"></div></div></div>
+<div id="score"><span id="sc">0</span><small id="bs">BEST 0</small></div>
+<div id="gear">⚙</div>
+<div id="controls">
+  <div id="steer"><div class="btn" data-k="L">◀</div><div class="btn" data-k="R">▶</div></div>
+  <div id="wheel"><div id="knob"></div></div>
+  <div id="pedals">
+    <div class="row"><div class="btn hb" data-k="H">HB</div><div class="btn nitro" data-k="N">NOS</div></div>
+    <div class="row"><div class="btn" data-k="B">▼</div><div class="btn" data-k="G">▲</div></div>
+  </div>
+</div>
+<div id="start" class="ov open">
+  <nav><b>yalladrift.com</b><span>by Abdulla_Edits</span></nav>
+  <h1>YALLA DRIFT</h1>
+  <p class="lead">A free 3D drift game that runs in your browser. Slide a desert circuit, chain combos and beat your best lap.</p>
+  <div class="stage"></div>
+  <button class="go" id="go">Play now</button>
+  <p id="hint"></p>
+  <section><h3>Pick your ride</h3><div class="cars">
+    <button data-car="yalla"><i style="background:#ff3d3d"></i>Yalla Racer<small>Balanced</small></button>
+    <button data-car="supra"><i style="background:#ff7a1a"></i>Supra MK4<small>RWD, slides easily</small></button>
+    <button data-car="r34"><i style="background:#1f4fd8"></i>GT-R R34<small>AWD, grips hard</small></button>
+  </div></section>
+  <section><h3>Play your way</h3><p>Touch on phones, keyboard on computers, or a gamepad. Switch any time in the ⚙ settings.</p></section>
+  <footer>© 2026 Yalla Drift · yalladrift.com</footer>
+</div>
+<div id="set" class="ov">
+  <h2>Settings</h2>
+  <div class="srow"><label for="inp">Controls</label><select id="inp"><option value="touch">Touch</option><option value="keyboard">Keyboard</option><option value="gamepad">Gamepad</option></select></div>
+  <div class="srow" id="tsrow"><label for="mode">Touch steering</label><select id="mode"><option value="buttons">Buttons</option><option value="wheel">Wheel</option></select></div>
+  <div class="srow"><label for="carsel">Car</label><select id="carsel"><option value="yalla">Yalla Racer</option><option value="supra">Supra MK4 · RWD</option><option value="r34">GT-R R34 · AWD</option></select></div>
+  <p id="padmsg"></p>
+  <button class="go alt" id="rb">Reset best score</button>
+  <button class="go alt" id="rst">Restart run</button>
+  <button class="go" id="close">Back to game</button>
+</div>
+<script>
+const $=i=>document.getElementById(i),cv=$('c');
+const R=new THREE.WebGLRenderer({canvas:cv,antialias:true}),scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(65,1,1,1600);
+let W,H;
+function rs(){W=innerWidth;H=innerHeight;R.setPixelRatio(Math.min(devicePixelRatio||1,2));R.setSize(W,H,false);cam.aspect=W/H;cam.updateProjectionMatrix()}
+addEventListener('resize',rs);rs();
+
+/* Input */
+const K={L:0,R:0,G:0,B:0,H:0,N:0};let wheel=0,padTxt='';
+const S={wheel:false,inp:'',car:'yalla'};
+try{Object.assign(S,JSON.parse(localStorage.getItem('yd_set')||'{}'))}catch(e){}
+if(!S.inp)S.inp=navigator.maxTouchPoints>0?'touch':'keyboard';
+const save=()=>{try{localStorage.setItem('yd_set',JSON.stringify(S))}catch(_){}};
+let best=0;try{best=+localStorage.getItem('yd_best')||0}catch(e){}
+const km={ArrowLeft:'L',a:'L',ArrowRight:'R',d:'R',ArrowUp:'G',w:'G',ArrowDown:'B',s:'B',' ':'H',Shift:'N'};
+addEventListener('keydown',e=>{if(S.inp!=='keyboard')return;const k=km[e.key];if(k){K[k]=1;e.preventDefault()}});
+addEventListener('keyup',e=>{const k=km[e.key];if(k)K[k]=0});
+document.querySelectorAll('[data-k]').forEach(b=>{const k=b.dataset.k;
+  b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);K[k]=1});
+  ['pointerup','pointercancel'].forEach(t=>b.addEventListener(t,()=>K[k]=0));
+  b.addEventListener('contextmenu',e=>e.preventDefault())});
+const wh=$('wheel'),kn=$('knob');
+function wmove(e){const r=wh.getBoundingClientRect(),R=r.width/2;let dx=e.clientX-(r.left+R),dy=e.clientY-(r.top+R);const m=Math.hypot(dx,dy),c=m>R?R/m:1;dx*=c;dy*=c;wheel=dx/R;kn.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`}
+const wend=()=>{wheel=0;kn.style.transform='translate(-50%,-50%)'};
+wh.addEventListener('pointerdown',e=>{wh.setPointerCapture(e.pointerId);wmove(e)});
+wh.addEventListener('pointermove',e=>{if(e.buttons)wmove(e)});
+wh.addEventListener('pointerup',wend);wh.addEventListener('pointercancel',wend);
+function pollPad(){
+  const g=[...(navigator.getGamepads?navigator.getGamepads():[])].find(x=>x&&x.connected),m=g?'Connected: '+g.id.slice(0,30)+'. Stick steer, RT gas, LT brake, X handbrake, Y nitro.':'No gamepad found. Connect one and press any button.';
+  if(m!==padTxt){padTxt=m;$('padmsg').textContent=m}
+  if(!g){for(const k in K)K[k]=0;wheel=0;return}
+  const b=i=>g.buttons[i]&&g.buttons[i].pressed,a=g.axes[0]||0;
+  wheel=Math.abs(a)>.12?a:(b(15)?1:b(14)?-1:0);
+  K.G=b(7)||b(0)?1:0;K.B=b(6)||b(1)?1:0;K.H=b(2)||b(5)?1:0;K.N=b(3)||b(4)?1:0;
+  if(!started&&(b(0)||b(9)))$('go').click();
+}
+const HINT={touch:'Hold ▲ to go, steer into a slide, chain drifts for combos.',keyboard:'Arrows or WASD to drive · Space handbrake · Shift nitro',gamepad:'Stick steer · RT gas · LT brake · X handbrake · Y nitro. Press A to start.'};
+function applySet(){
+  for(const k in K)K[k]=0;wheel=0;wend();
+  const t=S.inp==='touch';
+  $('controls').style.display=t?'flex':'none';
+  $('steer').style.display=t&&!S.wheel?'flex':'none';wh.style.display=t&&S.wheel?'block':'none';
+  $('tsrow').style.display=t?'flex':'none';$('padmsg').style.display=S.inp==='gamepad'?'block':'none';
+  $('mode').value=S.wheel?'wheel':'buttons';$('inp').value=S.inp;$('carsel').value=S.car;document.querySelectorAll('[data-car]').forEach(b=>b.classList.toggle('sel',b.dataset.car===S.car));$('hint').textContent=HINT[S.inp];
+}
+$('mode').onchange=e=>{S.wheel=e.target.value==='wheel';applySet();save()};
+$('inp').onchange=e=>{S.inp=e.target.value;padTxt='';applySet();save()};
+$('carsel').onchange=e=>{S.car=e.target.value;buildCar(S.car);save();applySet()};
+document.querySelectorAll('[data-car]').forEach(b=>b.onclick=()=>{S.car=b.dataset.car;buildCar(S.car);save();applySet()});
+applySet();
+let started=false,paused=false;
+$('go').onclick=()=>{started=true;document.body.classList.add('playing');$('start').classList.remove('open')};
+$('gear').onclick=()=>{paused=true;for(const k in K)K[k]=0;$('set').classList.add('open')};
+$('close').onclick=()=>{paused=false;$('set').classList.remove('open')};
+$('rb').onclick=()=>{best=0;try{localStorage.removeItem('yd_best')}catch(_){}};
+$('rst').onclick=()=>{reset();$('close').onclick()};
+
+/* World */
+scene.background=new THREE.Color(0xf2a65a);scene.fog=new THREE.Fog(0xf2a65a,150,850);
+scene.add(new THREE.HemisphereLight(0xffe2c0,0x8a5a2b,.95));
+const sun=new THREE.DirectionalLight(0xfff0d0,.7);sun.position.set(-200,300,-100);scene.add(sun);
+const gnd=new THREE.Mesh(new THREE.PlaneGeometry(3000,3000),new THREE.MeshLambertMaterial({color:0xd9b37c}));gnd.rotation.x=-Math.PI/2;scene.add(gnd);
+const pts=[[0,-170],[120,-150],[200,-40],[140,60],[170,150],[40,200],[-60,130],[-170,160],[-210,40],[-130,-40],[-190,-120],[-90,-190]].map(p=>new THREE.Vector3(p[0],0,p[1]));
+const N=400,HW=12,C=new THREE.CatmullRomCurve3(pts,true,'centripetal').getSpacedPoints(N),T=[],NR=[];
+for(let i=0;i<N;i++){const t=C[(i+1)%N].clone().sub(C[(i+N-1)%N]).setY(0).normalize();T.push(t);NR.push(new THREE.Vector3(-t.z,0,t.x))}
+function ribbon(o1,o2,y,col){
+  const pos=[],cl=[],idx=[];
+  for(let i=0;i<=N;i++){const k=i%N,c=C[k],n=NR[k],q=col(i);
+    pos.push(c.x+n.x*o1,y,c.z+n.z*o1,c.x+n.x*o2,y,c.z+n.z*o2);cl.push(q[0],q[1],q[2],q[0],q[1],q[2]);
+    if(i<N){const a=2*i;idx.push(a,a+1,a+2,a+1,a+3,a+2)}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('color',new THREE.Float32BufferAttribute(cl,3));g.setIndex(idx);g.computeVertexNormals();
+  scene.add(new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true})))}
+const AS=[.17,.18,.22],WT=[.95,.95,.95],RD=[.9,.18,.12];
+ribbon(-HW,HW,.1,i=>(i<2||i>N-1)?WT:AS);
+ribbon(-.2,.2,.14,i=>(i%8<4)?WT:AS);
+ribbon(-HW-2,-HW,.14,i=>(i>>1)%2?RD:WT);
+ribbon(HW,HW+2,.14,i=>(i>>1)%2?RD:WT);
+/* finish gantry */
+const ar=new THREE.Group(),am=new THREE.MeshLambertMaterial({color:0xff6b00});
+for(const z of[-HW-3,HW+3]){const p=new THREE.Mesh(new THREE.BoxGeometry(1.2,9,1.2),am);p.position.set(0,4.5,z);ar.add(p)}
+const bar=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.6,2*HW+7),am);bar.position.y=9;ar.add(bar);
+ar.position.copy(C[0]);ar.rotation.y=-Math.atan2(T[0].z,T[0].x);scene.add(ar);
+/* rocks */
+const dm=new THREE.Object3D(),rk=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0),new THREE.MeshLambertMaterial({color:0xb5834f,flatShading:true}),160);rk.frustumCulled=false;
+for(let i=0;i<160;){const x=(Math.random()-.5)*1100,z=(Math.random()-.5)*1100;let ok=true;
+  for(let k=0;k<N;k+=4)if((C[k].x-x)**2+(C[k].z-z)**2<1600){ok=false;break}
+  if(!ok)continue;const z2=2+Math.random()*7;dm.position.set(x,z2*.4,z);dm.rotation.set(Math.random(),Math.random(),Math.random());dm.scale.set(z2,z2*.7,z2);dm.updateMatrix();rk.setMatrixAt(i++,dm.matrix)}
+dm.scale.set(1,1,1);scene.add(rk);
+/* car */
+const CARS={
+  yalla:{c:0xff3d3d,L:4.4,W:2,acc:40,max:48,g:0,wing:1,wc:0x111111,rim:0x555555},
+  supra:{c:0xff7a1a,L:4.5,W:1.85,acc:44,max:52,g:-.4,wing:2,wc:0x15171c,stripe:0x15171c,rim:0xd4af37},
+  r34:{c:0x1f4fd8,L:4.6,W:1.82,acc:42,max:50,g:.5,wing:1,wc:0xc9ced6,stripe:0xc9ced6,quad:1,rim:0xc9a24a}};
+const carG=new THREE.Group(),flame=new THREE.Mesh(new THREE.ConeGeometry(.5,3,8),new THREE.MeshBasicMaterial({color:0x4cc9f0}));
+flame.rotation.z=Math.PI/2;scene.add(carG);
+function buildCar(k){
+  const d=CARS[k]||CARS.yalla,L=d.L,W=d.W;
+  while(carG.children.length)carG.remove(carG.children[0]);
+  const bx=(w,h,dp,c,x,y,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,dp),new THREE.MeshLambertMaterial({color:c}));m.position.set(x,y,z);carG.add(m)};
+  bx(L,.55,W,d.c,0,.65,0);bx(L*.34,.22,W*.94,d.c,L*.3,.97,0);bx(L*.36,.62,W*.86,0x1a1f2b,-L*.06,1.2,0);bx(L*.3,.08,W*.8,d.c,-L*.07,1.54,0);
+  if(d.stripe){bx(L*.34,.02,.3,d.stripe,L*.3,1.09,0);bx(L*.3,.02,.3,d.stripe,-L*.07,1.59,0)}
+  for(const z of[-1,1]){
+    bx(.15,.2,d.quad?.4:.55,0xffe066,L/2,.8,z*W*.34);
+    if(d.quad)bx(.15,.2,.3,0xfff3b0,L/2,.8,z*W*.16);
+    bx(.2,d.wing*.3,.1,0x111111,-L/2+.3,1.1+d.wing*.1,z*W*.3);
+    for(const x of[-L*.32,L*.32]){
+      const w=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.4,14),new THREE.MeshLambertMaterial({color:0x111111})),r=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.43,10),new THREE.MeshLambertMaterial({color:d.rim}));
+      for(const m of[w,r]){m.rotation.x=Math.PI/2;m.position.set(x,.42,z*(W/2+.02));carG.add(m)}}
+  }
+  if(d.quad){for(const z of[-.36,-.2,.2,.36])bx(.1,.2,.25,0xff2020,-L/2,.85,z*W)}else bx(.1,.18,W*.8,0xff2020,-L/2,.85,0);
+  bx(.7,.08,W*(d.wing>1?.95:.8),d.wc,-L/2+.15,1.25+d.wing*.2,0);
+  flame.position.set(-L/2-1.5,.8,0);carG.add(flame);
+}
+buildCar(S.car);
+/* skid marks */
+const MK=3000,mp=new Float32Array(MK*18);let mi=0;
+const mg=new THREE.BufferGeometry();mg.setAttribute('position',new THREE.BufferAttribute(mp,3));mg.setDrawRange(0,0);
+const mm=new THREE.Mesh(mg,new THREE.MeshBasicMaterial({color:0x15171c,transparent:true,opacity:.6,side:THREE.DoubleSide}));mm.frustumCulled=false;scene.add(mm);
+function strip(ax,az,bx2,bz){const dx=bx2-ax,dz=bz-az,l=Math.hypot(dx,dz)||1,nx=-dz/l*.2,nz=dx/l*.2,y=.18;
+  mp.set([ax-nx,y,az-nz,ax+nx,y,az+nz,bx2-nx,y,bz-nz,ax+nx,y,az+nz,bx2+nx,y,bz+nz,bx2-nx,y,bz-nz],(mi%MK)*18);mi++;mg.attributes.position.needsUpdate=true;mg.setDrawRange(0,Math.min(mi,MK)*6)}
+/* smoke */
+const sk=document.createElement('canvas');sk.width=sk.height=64;const g2=sk.getContext('2d'),gr=g2.createRadialGradient(32,32,2,32,32,32);gr.addColorStop(0,'rgba(255,255,255,.9)');gr.addColorStop(1,'rgba(255,255,255,0)');g2.fillStyle=gr;g2.fillRect(0,0,64,64);
+const stex=new THREE.CanvasTexture(sk),smoke=[];let si=0;
+for(let i=0;i<40;i++){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:stex,transparent:true,depthWrite:false,opacity:0}));sp.userData={l:0,vx:0,vz:0};scene.add(sp);smoke.push(sp)}
+
+let car,score,combo,driftT,nitro,drifting,pL,pR,ni,lap,lapT,half,camA,bestLap=0;
+function reset(){
+  const t=T[0];car={x:C[0].x,z:C[0].z,a:Math.atan2(t.z,t.x),vx:0,vz:0};camA=car.a;
+  score=0;combo=1;driftT=0;nitro=100;drifting=false;pL=pR=null;ni=0;lap=1;lapT=0;half=false;
+}
+reset();
+
+function step(dt){
+  const s=car;let bd=1e9,bi=ni;
+  for(let d=-10;d<=10;d++){const k=(ni+d+N)%N,e=(C[k].x-s.x)**2+(C[k].z-s.z)**2;if(e<bd){bd=e;bi=k}}
+  if(bd>2500)for(let k=0;k<N;k++){const e=(C[k].x-s.x)**2+(C[k].z-s.z)**2;if(e<bd){bd=e;bi=k}}
+  const pi=ni;ni=bi;
+  if(ni>N*.45&&ni<N*.55)half=true;
+  if(half&&pi>N*.8&&ni<N*.2){if(!bestLap||lapT<bestLap)bestLap=lapT;lap++;lapT=0;half=false}
+  lapT+=dt;
+  const n=NR[ni],c=C[ni];let off=(s.x-c.x)*n.x+(s.z-c.z)*n.z;const out=Math.abs(off)>HW;
+  const fx=Math.cos(s.a),fz=Math.sin(s.a),rx=-fz,rz=fx;
+  let fwd=s.vx*fx+s.vz*fz,lat=s.vx*rx+s.vz*rz;
+  const CD=CARS[S.car]||CARS.yalla,st=(S.inp==='gamepad'||(S.inp==='touch'&&S.wheel))?wheel:(K.R-K.L),nos=K.N&&K.G&&nitro>0;
+  if(K.G)fwd+=(nos?CD.acc*2:CD.acc)*dt;
+  if(K.B)fwd-=(fwd>0?80:25)*dt;
+  if(!K.G&&!K.B)fwd*=Math.exp(-.6*dt);
+  fwd*=Math.exp(-.25*dt);
+  if(out)fwd*=Math.exp(-1.1*dt);
+  const max=nos?CD.max*1.42:(out?28:CD.max);if(fwd>max)fwd-=(fwd-max)*Math.min(1,4*dt);
+  if(fwd<-14)fwd=-14;
+  if(K.H)fwd*=Math.exp(-.9*dt);
+  const grip=K.H?.9:Math.max(1.6+CD.g*.5,6+CD.g-Math.abs(st)*Math.max(fwd,0)/11.5);
+  lat*=Math.exp(-grip*dt);
+  s.vx=fx*fwd+rx*lat;s.vz=fz*fwd+rz*lat;
+  s.a+=st*(K.H?3:2.3)*(1-Math.min(Math.max(fwd,0),70)/140)*Math.max(-1,Math.min(1,fwd/16))*dt;
+  s.x+=s.vx*dt;s.z+=s.vz*dt;
+  off=(s.x-c.x)*n.x+(s.z-c.z)*n.z;const lim=HW+16;
+  if(Math.abs(off)>lim){const sg=Math.sign(off),ov=Math.abs(off)-lim;s.x-=n.x*sg*ov;s.z-=n.z*sg*ov;const vn=s.vx*n.x+s.vz*n.z;if(vn*sg>0){s.vx-=n.x*vn*1.5;s.vz-=n.z*vn*1.5}combo=1}
+  const sp=Math.hypot(s.vx,s.vz);
+  drifting=Math.abs(lat)>9&&sp>20;
+  if(drifting){driftT=1;combo=Math.min(10,combo+dt*1.2);score+=Math.abs(lat)*sp*dt*.12*combo}
+  else{driftT-=dt;if(driftT<0)combo=1}
+  nitro=nos?Math.max(0,nitro-30*dt):Math.min(100,nitro+(drifting?14:3)*dt);
+  if(score>best){best=score;try{localStorage.setItem('yd_best',best)}catch(_){}}
+  if(Math.abs(lat)>5&&sp>10){
+    const bx0=s.x-fx*1.4,bz0=s.z-fz*1.4,l={x:bx0-rx*1.05,z:bz0-rz*1.05},r={x:bx0+rx*1.05,z:bz0+rz*1.05};
+    if(pL){strip(pL.x,pL.z,l.x,l.z);strip(pR.x,pR.z,r.x,r.z)}
+    pL=l;pR=r;
+    if(drifting){const p=smoke[si++%40];p.position.set(bx0,.6,bz0);p.userData={l:1,vx:(Math.random()-.5)*4,vz:(Math.random()-.5)*4}}
+  }else pL=pR=null;
+  for(const p of smoke){const u=p.userData;if(u.l>0){u.l-=dt*1.1;p.position.x+=u.vx*dt;p.position.z+=u.vz*dt;p.position.y+=dt*1.5;p.material.opacity=Math.max(0,u.l)*.5;p.scale.setScalar(3+(1-u.l)*8)}}
+}
+const fmt=t=>Math.floor(t/60)+':'+(t%60).toFixed(1).padStart(4,'0');
+function draw(dt){
+  const s=car,sp=Math.hypot(s.vx,s.vz),nos=K.N&&K.G&&nitro>0;
+  carG.position.set(s.x,0,s.z);carG.rotation.y=-s.a;flame.visible=!!nos;
+  let dv=0;if(sp>8){dv=Math.atan2(s.vz,s.vx)-s.a;dv=Math.atan2(Math.sin(dv),Math.cos(dv))}
+  let d=s.a+dv*.55-camA;d=Math.atan2(Math.sin(d),Math.cos(d));camA+=d*Math.min(1,3.5*dt);
+  const dist=9+sp*.06;
+  cam.position.set(s.x-Math.cos(camA)*dist,4.2+sp*.02,s.z-Math.sin(camA)*dist);
+  cam.lookAt(s.x+Math.cos(camA)*6,1.2,s.z+Math.sin(camA)*6);
+  if(!started){const t=performance.now()/4000;cam.position.set(s.x+Math.cos(t)*8,2.6,s.z+Math.sin(t)*8);cam.lookAt(s.x,1,s.z)}
+  cam.fov=62+Math.min(sp,70)*.3+(nos?6:0);cam.updateProjectionMatrix();
+  R.render(scene,cam);
+  $('speed').textContent=Math.round(sp*3.6);
+  $('driftLabel').style.opacity=drifting?1:0;$('driftLabel').textContent='DRIFT x'+combo.toFixed(1);
+  $('nitroFill').style.width=nitro+'%';
+  $('sc').textContent=Math.floor(score).toLocaleString();
+  $('bs').innerHTML='LAP '+lap+' · '+fmt(lapT)+' · BEST '+(bestLap?fmt(bestLap):'--')+'<br>BEST SCORE '+Math.floor(best).toLocaleString();
+}
+let last=performance.now();
+function loop(t){const dt=Math.min(.033,(t-last)/1000);last=t;if(S.inp==='gamepad')pollPad();if(started&&!paused)step(dt);draw(dt);requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
